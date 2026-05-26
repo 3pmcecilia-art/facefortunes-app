@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>✦ AI 관상 분석</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      color: #e0e0e0;
+    }
+
+    /* ── 페이지 전환 ── */
+    .page {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 80px;
+      min-height: 100vh;
+      animation: fadeIn 0.35s ease;
+    }
+    .page.active { display: flex; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── 공통 헤더 ── */
+    header { text-align: center; margin-bottom: 24px; }
+    header h1 {
+      font-size: 2rem;
+      background: linear-gradient(90deg, #e2b96f, #f5deb3);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 2px;
+    }
+    header p { color: #a0a8c0; margin-top: 8px; font-size: 0.92rem; }
+
+    /* ── 단계 표시 ── */
+    .steps {
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 22px; font-size: 0.8rem; flex-wrap: wrap; justify-content: center;
+    }
+    .step { padding: 4px 14px; border-radius: 20px; white-space: nowrap; }
+    .step.done    { color: #52c07a; border: 1px solid rgba(82,192,122,0.35); }
+    .step.active  { background: rgba(226,185,111,0.18); color: #e2b96f; border: 1px solid rgba(226,185,111,0.4); font-weight: 700; }
+    .step.inactive{ color: #555; border: 1px solid #333; }
+    .step-arrow   { color: #444; }
+
+    /* ── 카드 ── */
+    .card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px;
+      padding: 28px;
+      width: 100%;
+      max-width: 560px;
+      backdrop-filter: blur(10px);
+    }
+
+    /* ── 버튼 ── */
+    button {
+      padding: 11px 16px; border-radius: 10px; border: none;
+      cursor: pointer; font-size: 0.88rem; font-weight: 600; transition: all 0.2s;
+    }
+    .btn-primary  { background: linear-gradient(135deg, #e2b96f, #c8973a); color: #1a1a2e; }
+    .btn-primary:hover  { opacity: 0.88; transform: translateY(-1px); }
+    .btn-secondary{ background: rgba(255,255,255,0.08); color: #e0e0e0; border: 1px solid rgba(255,255,255,0.15); }
+    .btn-secondary:hover{ background: rgba(255,255,255,0.14); }
+    .btn-share    { background: linear-gradient(135deg, #5b8dee, #3b6bd0); color: #fff; }
+    .btn-save     { background: linear-gradient(135deg, #52b788, #2d9e68); color: #fff; }
+    .btn-full     { width: 100%; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    .btn-row { display: flex; gap: 10px; margin-top: 14px; }
+    .btn-row button { flex: 1; }
+
+    /* ── API 키 입력 ── */
+    #api-key-section h2  { font-size: 1rem; color: #e2b96f; margin-bottom: 10px; }
+    #api-key-section p   { font-size: 0.82rem; color: #a0a8c0; margin-bottom: 16px; line-height: 1.65; }
+    .key-input-row { display: flex; gap: 8px; }
+    .key-input-row input {
+      flex: 1; padding: 11px 14px; border-radius: 10px;
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
+      color: #e0e0e0; font-size: 0.85rem; font-family: monospace; outline: none;
+    }
+    .key-input-row input:focus { border-color: rgba(226,185,111,0.5); }
+    .key-note { font-size: 0.74rem; color: #555; margin-top: 10px; }
+    .key-note a { color: #7a8fc0; }
+
+    /* ── 설정 버튼 ── */
+    .settings-row { text-align: right; margin-bottom: 14px; }
+    .btn-settings {
+      background: none; border: 1px solid rgba(255,255,255,0.1);
+      color: #6a7490; font-size: 0.74rem; padding: 4px 11px; border-radius: 20px;
+    }
+    .btn-settings:hover { border-color: rgba(226,185,111,0.3); color: #a0a8c0; }
+
+    /* ── 업로드 존 ── */
+    #drop-zone {
+      border: 2px dashed rgba(226,185,111,0.45);
+      border-radius: 14px; padding: 36px 20px;
+      text-align: center; cursor: pointer; transition: all 0.2s;
+    }
+    #drop-zone:hover, #drop-zone.drag-over {
+      border-color: #e2b96f; background: rgba(226,185,111,0.05);
+    }
+    #drop-zone .icon { font-size: 2.6rem; margin-bottom: 10px; }
+    #drop-zone p { color: #a0a8c0; font-size: 0.88rem; line-height: 1.65; }
+    #drop-zone strong { color: #e2b96f; }
+
+    /* ── 미리보기 ── */
+    #preview-wrap { display: none; margin-top: 18px; text-align: center; }
+    #preview-wrap img {
+      max-width: 100%; max-height: 260px;
+      border-radius: 12px; border: 2px solid rgba(226,185,111,0.3); object-fit: cover;
+    }
+    #change-btn {
+      margin-top: 8px; background: none; border: none;
+      color: #6a7490; font-size: 0.78rem; cursor: pointer; text-decoration: underline;
+    }
+
+    /* ── 스피너 ── */
+    .spinner-wrap { display: none; text-align: center; padding: 32px 0; }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid rgba(226,185,111,0.15); border-top-color: #e2b96f;
+      border-radius: 50%; animation: spin 0.85s linear infinite; margin: 0 auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-wrap p     { color: #a0a8c0; font-size: 0.9rem; }
+    .spinner-wrap small { color: #555; font-size: 0.76rem; display: block; margin-top: 6px; }
+
+    /* ── 오류 ── */
+    .error-box {
+      display: none; margin-top: 14px;
+      background: rgba(220,60,60,0.1); border: 1px solid rgba(220,60,60,0.3);
+      border-radius: 10px; padding: 14px 16px;
+      color: #f08080; font-size: 0.87rem; line-height: 1.5;
+    }
+
+    /* ── Step 1 결과 ── */
+    #step1-result { display: none; margin-top: 22px; }
+    .section-title { font-size: 0.95rem; color: #e2b96f; margin-bottom: 12px; text-align: center; letter-spacing: 1px; }
+    .impression-banner {
+      background: linear-gradient(135deg, rgba(226,185,111,0.14), rgba(226,185,111,0.04));
+      border: 1px solid rgba(226,185,111,0.28); border-radius: 12px;
+      padding: 13px 16px; margin-bottom: 14px;
+      font-size: 0.93rem; color: #f5deb3; text-align: center; font-style: italic; line-height: 1.5;
+    }
+    .features-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .feature-item {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px; padding: 11px 13px;
+    }
+    .feature-item .label { font-size: 0.7rem; color: #e2b96f; margin-bottom: 3px; font-weight: 600; }
+    .feature-item .value { font-size: 0.82rem; color: #d0d8f0; line-height: 1.4; }
+    .confidence-bar {
+      margin-top: 12px; font-size: 0.78rem; color: #a0a8c0;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .bar-track { flex: 1; height: 5px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+    .bar-fill  { height: 100%; background: linear-gradient(90deg, #e2b96f, #f5deb3); border-radius: 3px; transition: width 0.8s ease; }
+
+    .btn-next {
+      margin-top: 20px; width: 100%; padding: 14px;
+      background: linear-gradient(135deg, #e2b96f, #c8973a);
+      color: #1a1a2e; font-size: 1rem; font-weight: 700;
+      border-radius: 12px; border: none; cursor: pointer;
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(226,185,111,0.4); }
+      50%      { box-shadow: 0 0 0 9px rgba(226,185,111,0); }
+    }
+
+    /* ── Step 2 — 프로필 헤더 ── */
+    .profile-header {
+      display: flex; align-items: center; gap: 14px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 14px; padding: 14px 16px; margin-bottom: 18px;
+    }
+    .profile-header img {
+      width: 62px; height: 62px; border-radius: 50%;
+      object-fit: cover; border: 2px solid rgba(226,185,111,0.4); flex-shrink: 0;
+    }
+    .profile-header .imp strong { color: #f5deb3; display: block; font-size: 0.92rem; margin-bottom: 3px; }
+    .profile-header .imp span  { color: #6a7490; font-size: 0.76rem; }
+
+    /* ── Step 2 — 요약 ── */
+    .reading-summary {
+      background: linear-gradient(135deg, rgba(226,185,111,0.16), rgba(200,151,58,0.05));
+      border: 1px solid rgba(226,185,111,0.38);
+      border-radius: 14px; padding: 16px 18px; text-align: center; margin-bottom: 18px;
+    }
+    .reading-summary .sum-label { font-size: 0.7rem; color: #e2b96f; letter-spacing: 1.5px; margin-bottom: 8px; }
+    .reading-summary .sum-text  { font-size: 0.97rem; color: #f5deb3; line-height: 1.65; }
+
+    /* ── Step 2 — 카테고리 ── */
+    .cat-grid { display: grid; grid-template-columns: 1fr; gap: 11px; margin-bottom: 18px; }
+    .cat-card {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 14px; padding: 16px 18px; transition: border-color 0.2s;
+    }
+    .cat-card:hover { border-color: rgba(226,185,111,0.28); }
+    .cat-card .cat-title   { font-size: 0.86rem; color: #e2b96f; font-weight: 700; margin-bottom: 7px; }
+    .cat-card .cat-content { font-size: 0.85rem; color: #c8d0e8; line-height: 1.75; margin-bottom: 9px; }
+    .keywords { display: flex; flex-wrap: wrap; gap: 5px; }
+    .kw-tag {
+      background: rgba(226,185,111,0.09); border: 1px solid rgba(226,185,111,0.22);
+      color: #e2b96f; font-size: 0.72rem; padding: 3px 9px; border-radius: 20px;
+    }
+
+    /* ── Step 2 — 행운 ── */
+    .lucky-section {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 14px; padding: 16px 18px; margin-bottom: 18px;
+    }
+    .lucky-section .sec-title { font-size: 0.86rem; color: #e2b96f; font-weight: 700; margin-bottom: 12px; }
+    .lucky-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; text-align: center; }
+    .lucky-item .lk-label { font-size: 0.68rem; color: #a0a8c0; margin-bottom: 6px; }
+    .lucky-item .lk-value { font-size: 1.05rem; color: #f5deb3; font-weight: 700; }
+    .color-dot {
+      display: inline-block; width: 16px; height: 16px;
+      border-radius: 50%; border: 2px solid rgba(255,255,255,0.18); margin-bottom: 3px;
+    }
+
+    /* ── Step 2 — 마무리 ── */
+    .closing-msg {
+      background: linear-gradient(135deg, rgba(100,120,200,0.1), rgba(80,100,180,0.04));
+      border: 1px solid rgba(130,150,230,0.2); border-radius: 12px;
+      padding: 15px 18px; text-align: center; font-size: 0.93rem;
+      color: #c8d0f0; font-style: italic; margin-bottom: 22px; line-height: 1.7;
+    }
+
+    /* ── 액션 버튼 ── */
+    .action-row { display: flex; gap: 9px; }
+    .action-row button { flex: 1; }
+
+    /* ── 토스트 ── */
+    #toast {
+      display: none; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      background: #2d9e68; color: #fff; padding: 11px 22px;
+      border-radius: 30px; font-size: 0.88rem; font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4); z-index: 999;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════
+     PAGE 0 — API 키 입력
+════════════════════════════════════════════════ -->
+<div class="page active" id="page-apikey">
+  <header>
+    <h1>✦ AI 관상 분석</h1>
+    <p>사진 한 장으로 나의 관상을 풀이해 드립니다</p>
+  </header>
+  <div class="card">
+    <div id="api-key-section">
+      <h2>🔑 OpenRouter API 키 입력</h2>
+      <p>이 앱은 OpenRouter AI 서비스를 사용합니다.<br>
+         API 키를 입력하면 이 브라우저에만 저장되며<br>외부로 전송되지 않습니다.</p>
+      <div class="key-input-row">
+        <input type="password" id="api-key-input" placeholder="sk-or-v1-..." />
+        <button class="btn-primary" onclick="saveApiKey()">시작하기</button>
+      </div>
+      <p class="key-note">
+        API 키 발급 → <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>
+        (무료 가입 후 발급)
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PAGE 1 — 사진 업로드 + 얼굴 분석
+════════════════════════════════════════════════ -->
+<div class="page" id="page-step1">
+  <header>
+    <h1>✦ AI 관상 분석</h1>
+    <p>사진을 올리면 AI가 얼굴 특징을 분석합니다</p>
+  </header>
+
+  <div class="steps">
+    <span class="step active">1단계 · 얼굴 분석</span>
+    <span class="step-arrow">›</span>
+    <span class="step inactive">2단계 · 관상 풀이</span>
+  </div>
+
+  <div class="card">
+    <div class="settings-row">
+      <button class="btn-settings" onclick="resetApiKey()">⚙ API 키 변경</button>
+    </div>
+
+    <!-- 업로드 존 -->
+    <div id="drop-zone">
+      <div class="icon">🖼️</div>
+      <p><strong>사진을 여기에 드래그</strong>하거나<br>클릭하여 파일을 선택하세요</p>
+      <p style="margin-top:7px;font-size:0.78rem;">JPG · PNG · WEBP / 최대 10MB</p>
+    </div>
+    <input type="file" id="file-input"   accept="image/jpeg,image/png,image/webp" style="display:none" />
+    <input type="file" id="camera-input" accept="image/*" capture="user"          style="display:none" />
+
+    <div class="btn-row" id="upload-btns">
+      <button class="btn-primary"   onclick="document.getElementById('file-input').click()">📂 파일 선택</button>
+      <button class="btn-secondary" onclick="document.getElementById('camera-input').click()">📷 카메라</button>
+    </div>
+
+    <!-- 미리보기 -->
+    <div id="preview-wrap">
+      <img id="preview-img" src="" alt="미리보기" />
+      <br/>
+      <button id="change-btn" onclick="resetUpload()">다른 사진 선택</button>
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn-primary btn-full" id="analyze-btn" onclick="runStep1()">🔍 얼굴 분석 시작</button>
+      </div>
+    </div>
+
+    <!-- 로딩 -->
+    <div class="spinner-wrap" id="step1-loading">
+      <div class="spinner"></div>
+      <p>얼굴 특징을 분석하는 중입니다…</p>
+      <small>약 10~20초 소요</small>
+    </div>
+
+    <!-- 오류 -->
+    <div class="error-box" id="error1-box"><span id="error1-msg"></span></div>
+
+    <!-- 결과 -->
+    <div id="step1-result">
+      <p class="section-title">✦ 얼굴 특징 분석 완료</p>
+      <div class="impression-banner" id="overall-impression"></div>
+      <div class="features-grid"    id="features-grid"></div>
+      <div class="confidence-bar">
+        <span>분석 신뢰도</span>
+        <div class="bar-track"><div class="bar-fill" id="conf-fill" style="width:0%"></div></div>
+        <span id="conf-pct">0%</span>
+      </div>
+      <button class="btn-next" onclick="goToStep2()">관상 풀이 보기 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     PAGE 2 — 관상 풀이
+════════════════════════════════════════════════ -->
+<div class="page" id="page-step2">
+  <header>
+    <h1>✦ AI 관상 분석</h1>
+    <p>AI가 관상을 풀이합니다</p>
+  </header>
+
+  <div class="steps">
+    <span class="step done">1단계 ✓</span>
+    <span class="step-arrow">›</span>
+    <span class="step active">2단계 · 관상 풀이</span>
+  </div>
+
+  <div class="card">
+    <!-- 로딩 -->
+    <div class="spinner-wrap" id="step2-loading">
+      <div class="spinner"></div>
+      <p>관상을 살펴보는 중입니다…</p>
+      <small>AI가 깊이 분석합니다. 약 30~90초 소요</small>
+    </div>
+
+    <!-- 오류 -->
+    <div class="error-box" id="error2-box">
+      <span id="error2-msg"></span>
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn-secondary" onclick="goToStep1()">← 1단계로</button>
+        <button class="btn-primary"   onclick="retryStep2()">다시 시도</button>
+      </div>
+    </div>
+
+    <!-- 결과 -->
+    <div id="step2-result" style="display:none;">
+      <!-- 프로필 헤더 -->
+      <div class="profile-header">
+        <img id="thumb" src="" alt="" />
+        <div class="imp">
+          <strong id="ph-impression"></strong>
+          <span   id="ph-confidence"></span>
+        </div>
+      </div>
+
+      <!-- 요약 -->
+      <div class="reading-summary">
+        <div class="sum-label">✦ 종합 관상</div>
+        <div class="sum-text" id="reading-summary"></div>
+      </div>
+
+      <!-- 카테고리 -->
+      <div class="cat-grid" id="cat-grid"></div>
+
+      <!-- 행운 -->
+      <div class="lucky-section">
+        <div class="sec-title">✨ 나의 행운</div>
+        <div class="lucky-grid">
+          <div class="lucky-item">
+            <div class="lk-label">행운의 색상</div>
+            <div><span class="color-dot" id="lucky-dot"></span></div>
+            <div class="lk-value" id="lucky-color"></div>
+          </div>
+          <div class="lucky-item">
+            <div class="lk-label">행운의 숫자</div>
+            <div class="lk-value" id="lucky-number"></div>
+          </div>
+          <div class="lucky-item">
+            <div class="lk-label">행운의 방향</div>
+            <div class="lk-value" id="lucky-direction"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 마무리 -->
+      <div class="closing-msg" id="closing-msg"></div>
+
+      <!-- 버튼 -->
+      <div class="action-row">
+        <button class="btn-share"     onclick="shareResult()">🔗 공유하기</button>
+        <button class="btn-save"      onclick="saveRecord()">💾 저장하기</button>
+        <button class="btn-secondary" onclick="goToStep1()">↩ 처음으로</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── 상수 ──────────────────────────────────────────────────────────────────────
+const ENDPOINT  = "https://openrouter.ai/api/v1/chat/completions";
+const MODEL_IMG = "qwen/qwen3.5-flash-02-23";
+const MODEL_TXT = "nvidia/nemotron-3-super-120b-a12b:free";
+
+const CAT_ICONS = { personality:"🌿", wealth:"💰", health:"❤️", relationships:"🤝", career:"⭐" };
+const COLOR_MAP = {
+  "빨강":"#e05252","빨간":"#e05252","레드":"#e05252",
+  "파랑":"#5288e0","파란":"#5288e0","블루":"#5288e0","딥 블루":"#2255b0","네이비":"#1a2e80",
+  "초록":"#52c07a","초록색":"#52c07a","그린":"#52c07a",
+  "노랑":"#e0c952","노란":"#e0c952","골드":"#c8973a","금":"#c8973a",
+  "주황":"#e08a30","오렌지":"#e08a30",
+  "보라":"#9b5de5","자주":"#9b5de5","퍼플":"#9b5de5",
+  "하늘":"#7ecbf5","하늘색":"#7ecbf5","스카이블루":"#7ecbf5",
+  "흰":"#f0f0f0","화이트":"#f0f0f0","은":"#c0c0c0","실버":"#c0c0c0",
+  "검정":"#333","블랙":"#333","갈":"#8b5e3c","브라운":"#8b5e3c",
+  "분홍":"#e87aa0","핑크":"#e87aa0",
+  "에메랄드":"#31c993","민트":"#4ecdc4","청록":"#2eb8b8",
+};
+const FEAT_LABELS = {
+  overall_shape:"얼굴형", forehead:"이마", eyes:"눈", eyebrows:"눈썹",
+  nose:"코", mouth:"입", chin:"턱", cheekbones:"광대", skin_tone:"피부톤",
+};
+
+// ── 상태 ──────────────────────────────────────────────────────────────────────
+let apiKey    = localStorage.getItem("or_api_key") || "";
+let step1Data = null;
+let thumbSrc  = "";
+
+// ── 초기화 ────────────────────────────────────────────────────────────────────
+(function init() {
+  if (apiKey) goPage("page-step1");
+
+  document.getElementById("api-key-input").onkeydown = e => { if (e.key === "Enter") saveApiKey(); };
+  document.getElementById("file-input").onchange   = e => handleFile(e.target.files[0]);
+  document.getElementById("camera-input").onchange = e => handleFile(e.target.files[0]);
+
+  const dz = document.getElementById("drop-zone");
+  dz.onclick     = () => document.getElementById("file-input").click();
+  dz.ondragover  = e => { e.preventDefault(); dz.classList.add("drag-over"); };
+  dz.ondragleave = () => dz.classList.remove("drag-over");
+  dz.ondrop = e => {
+    e.preventDefault(); dz.classList.remove("drag-over");
+    const f = e.dataTransfer.files[0]; if (f) handleFile(f);
+  };
+})();
+
+// ── 페이지 전환 ───────────────────────────────────────────────────────────────
+function goPage(id) {
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+function goToStep1() { resetUpload(); goPage("page-step1"); }
+function goToStep2() {
+  goPage("page-step2");
+  runStep2();
+}
+
+// ── API 키 ────────────────────────────────────────────────────────────────────
+function saveApiKey() {
+  const key = document.getElementById("api-key-input").value.trim();
+  if (!key.startsWith("sk-or-")) {
+    alert("올바른 OpenRouter API 키를 입력해주세요. (sk-or-... 형식)"); return;
+  }
+  apiKey = key;
+  localStorage.setItem("or_api_key", key);
+  goPage("page-step1");
+}
+function resetApiKey() {
+  if (!confirm("API 키를 초기화하고 다시 입력하시겠습니까?")) return;
+  localStorage.removeItem("or_api_key");
+  apiKey = "";
+  goPage("page-apikey");
+}
+
+// ── 파일 처리 ─────────────────────────────────────────────────────────────────
+function handleFile(file) {
+  if (!file) return;
+  if (!["image/jpeg","image/png","image/webp"].includes(file.type)) {
+    showError1("JPG, PNG, WEBP 형식만 업로드할 수 있습니다."); return;
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    showError1("파일 크기는 10MB 이하여야 합니다."); return;
+  }
+  thumbSrc = URL.createObjectURL(file);
+  document.getElementById("preview-img").src = thumbSrc;
+  document.getElementById("preview-wrap").style.display   = "block";
+  document.getElementById("drop-zone").style.display      = "none";
+  document.getElementById("upload-btns").style.display    = "none";
+  document.getElementById("step1-result").style.display   = "none";
+  hideError1();
+  window._file = file;
+}
+
+// ── 이미지 → base64 ───────────────────────────────────────────────────────────
+function fileToBase64(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1024;
+      let [w, h] = [img.width, img.height];
+      if (w > MAX || h > MAX) {
+        if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+        else        { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const c = document.createElement("canvas");
+      c.width = w; c.height = h;
+      c.getContext("2d").drawImage(img, 0, 0, w, h);
+      resolve(c.toDataURL("image/jpeg", 0.85));
+    };
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// ── JSON 추출 ─────────────────────────────────────────────────────────────────
+function extractJSON(text) {
+  const clean = text.replace(/```json|```/g, "").trim();
+  const m = clean.match(/\{[\s\S]*\}/);
+  if (m) return JSON.parse(m[0]);
+  throw new Error("응답에서 JSON을 찾을 수 없습니다.");
+}
+
+// ── OpenRouter 호출 ───────────────────────────────────────────────────────────
+async function callOR(model, messages, maxTokens) {
+  const res = await fetch(ENDPOINT, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": location.href,
+    },
+    body: JSON.stringify({ model, messages, max_tokens: maxTokens }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
+  return data.choices[0].message.content;
+}
+
+// ── Step 1: 얼굴 분석 ────────────────────────────────────────────────────────
+async function runStep1() {
+  const file = window._file;
+  if (!file) return;
+
+  show("step1-loading"); hide("step1-result"); hideError1();
+  document.getElementById("analyze-btn").disabled = true;
+
+  try {
+    const dataUrl = await fileToBase64(file);
+    const raw = await callOR(MODEL_IMG, [
+      { role: "system", content: `당신은 얼굴 특징 분석 전문가입니다. JSON만 반환하세요. 모든 값은 한국어로 작성하고 긍정적·중립적 표현만 사용하세요.
+얼굴 미감지: {"face_detected":false}
+감지 시: {"face_detected":true,"features":{"overall_shape":"...","forehead":"...","eyes":"...","nose":"...","mouth":"...","chin":"...","eyebrows":"...","cheekbones":"...","skin_tone":"...","overall_impression":"..."},"confidence":0.0}` },
+      { role: "user", content: [
+          { type: "image_url", image_url: { url: dataUrl } },
+          { type: "text", text: "얼굴 특징을 분석해주세요. JSON만 반환하고 모든 내용은 한국어로 작성하세요." }
+        ]
+      }
+    ], 1024);
+
+    const data = extractJSON(raw);
+    if (!data.face_detected) {
+      showError1("얼굴을 찾을 수 없습니다. 정면 사진을 올려주세요."); return;
+    }
+    step1Data = data;
+    renderStep1(data);
+
+  } catch (e) {
+    showError1("오류: " + e.message);
+  } finally {
+    hide("step1-loading");
+    document.getElementById("analyze-btn").disabled = false;
+  }
+}
+
+function renderStep1(data) {
+  const f = data.features || {};
+  document.getElementById("overall-impression").textContent = f.overall_impression || "";
+
+  const grid = document.getElementById("features-grid");
+  grid.innerHTML = "";
+  Object.entries(FEAT_LABELS).forEach(([key, label]) => {
+    if (!f[key]) return;
+    const d = document.createElement("div");
+    d.className = "feature-item";
+    d.innerHTML = `<div class="label">${label}</div><div class="value">${f[key]}</div>`;
+    grid.appendChild(d);
+  });
+
+  const pct = Math.round((data.confidence || 0) * 100);
+  document.getElementById("conf-fill").style.width = pct + "%";
+  document.getElementById("conf-pct").textContent  = pct + "%";
+
+  show("step1-result");
+  document.getElementById("step1-result").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+// ── Step 2: 관상 풀이 ────────────────────────────────────────────────────────
+async function runStep2() {
+  show("step2-loading"); hide("step2-result"); hideError2();
+  document.getElementById("thumb").src = thumbSrc;
+  document.getElementById("ph-impression").textContent = step1Data.features.overall_impression || "";
+  document.getElementById("ph-confidence").textContent =
+    `분석 신뢰도 ${Math.round((step1Data.confidence || 0) * 100)}%`;
+
+  try {
+    const raw = await callOR(MODEL_TXT, [
+      { role: "system", content: `당신은 한국 전통 관상학 대가입니다. 긍정적이고 희망적인 관상 풀이를 한국어로 작성하세요. 부정적 묘사 절대 금지. JSON만 반환하세요.` },
+      { role: "user", content:
+        `얼굴 특징:\n${JSON.stringify(step1Data.features, null, 2)}\n\n아래 구조로만 답변하세요:\n` +
+        `{"summary":"...","categories":{"personality":{"title":"성격 및 기질","content":"...","keywords":[]},"wealth":{"title":"재운 및 사업운","content":"...","keywords":[]},"health":{"title":"건강운","content":"...","keywords":[]},"relationships":{"title":"대인관계 및 애정운","content":"...","keywords":[]},"career":{"title":"적성 및 직업운","content":"...","keywords":[]}},"lucky":{"color":"...","number":0,"direction":"..."},"closing_message":"..."}`
+      }
+    ], 2048);
+
+    const data = extractJSON(raw);
+    localStorage.setItem("step2_result", JSON.stringify(data));
+    renderStep2(data);
+
+  } catch (e) {
+    hide("step2-loading");
+    showError2("오류: " + e.message);
+  }
+}
+
+function retryStep2() { hideError2(); runStep2(); }
+
+function renderStep2(data) {
+  hide("step2-loading");
+  document.getElementById("reading-summary").textContent = data.summary || "";
+
+  const grid = document.getElementById("cat-grid");
+  grid.innerHTML = "";
+  Object.entries(data.categories || {}).forEach(([key, cat]) => {
+    const icon = CAT_ICONS[key] || "✦";
+    const kws  = (cat.keywords || []).map(k => `<span class="kw-tag">${k}</span>`).join("");
+    const div  = document.createElement("div");
+    div.className = "cat-card";
+    div.innerHTML = `
+      <div class="cat-title"><span style="margin-right:6px;">${icon}</span>${cat.title||""}</div>
+      <div class="cat-content">${cat.content||""}</div>
+      <div class="keywords">${kws}</div>`;
+    grid.appendChild(div);
+  });
+
+  const lucky = data.lucky || {};
+  document.getElementById("lucky-color").textContent     = lucky.color     || "-";
+  document.getElementById("lucky-number").textContent    = lucky.number    || "-";
+  document.getElementById("lucky-direction").textContent = lucky.direction || "-";
+  const ck = Object.keys(COLOR_MAP).find(k => (lucky.color || "").includes(k));
+  document.getElementById("lucky-dot").style.background = ck ? COLOR_MAP[ck] : "#e2b96f";
+
+  document.getElementById("closing-msg").textContent = data.closing_message || "";
+  show("step2-result");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+// ── 공유 & 저장 ───────────────────────────────────────────────────────────────
+async function shareResult() {
+  const d2 = JSON.parse(localStorage.getItem("step2_result") || "{}");
+  const lucky = d2.lucky || {};
+  const lines = [`✦ AI 관상 분석 결과\n${d2.summary || ""}\n`];
+  Object.values(d2.categories || {}).forEach(c => lines.push(`[${c.title}]\n${c.content}`));
+  lines.push(`\n🍀 행운: ${lucky.color} / ${lucky.number} / ${lucky.direction}`);
+  lines.push(`\n${d2.closing_message || ""}`);
+  const text = lines.join("\n");
+  if (navigator.share) { await navigator.share({ title: "나의 관상 풀이", text }); }
+  else { await navigator.clipboard.writeText(text); showToast("클립보드에 복사되었습니다!"); }
+}
+
+function saveRecord() {
+  const d2 = JSON.parse(localStorage.getItem("step2_result") || "null");
+  if (!step1Data || !d2) return;
+  const records = JSON.parse(localStorage.getItem("reading_records") || "[]");
+  records.unshift({ id: crypto.randomUUID(), created_at: new Date().toISOString(),
+    thumbnail: thumbSrc, step1_features: step1Data.features, step2_reading: d2 });
+  if (records.length > 10) records.pop();
+  localStorage.setItem("reading_records", JSON.stringify(records));
+  showToast("저장되었습니다!");
+}
+
+// ── 리셋 ──────────────────────────────────────────────────────────────────────
+function resetUpload() {
+  window._file = null; thumbSrc = ""; step1Data = null;
+  document.getElementById("preview-wrap").style.display = "none";
+  document.getElementById("drop-zone").style.display    = "block";
+  document.getElementById("upload-btns").style.display  = "flex";
+  hide("step1-result"); hideError1();
+  document.getElementById("file-input").value = "";
+  document.getElementById("camera-input").value = "";
+}
+
+// ── 유틸 ──────────────────────────────────────────────────────────────────────
+function show(id) { document.getElementById(id).style.display = "block"; }
+function hide(id) { document.getElementById(id).style.display = "none"; }
+function showError1(msg) { document.getElementById("error1-msg").textContent = msg; show("error1-box"); hide("step1-loading"); }
+function hideError1()    { hide("error1-box"); }
+function showError2(msg) { document.getElementById("error2-msg").textContent = msg; show("error2-box"); }
+function hideError2()    { hide("error2-box"); }
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.style.display = "block";
+  setTimeout(() => t.style.display = "none", 2500);
+}
+</script>
+</body>
+</html>

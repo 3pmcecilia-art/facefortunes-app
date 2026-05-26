@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>관상 분석 — 관상 풀이</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      color: #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 60px;
+    }
+
+    header { text-align: center; margin-bottom: 28px; }
+    header h1 {
+      font-size: 2rem;
+      background: linear-gradient(90deg, #e2b96f, #f5deb3);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 2px;
+    }
+    header p { color: #a0a8c0; margin-top: 8px; font-size: 0.95rem; }
+
+    .steps {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 28px; font-size: 0.82rem;
+    }
+    .step { padding: 5px 14px; border-radius: 20px; }
+    .step.done   { color: #52c07a; border: 1px solid rgba(82,192,122,0.35); }
+    .step.active { background: rgba(226,185,111,0.2); color: #e2b96f; border: 1px solid rgba(226,185,111,0.4); font-weight: 700; }
+    .step.inactive { color: #555; border: 1px solid #333; }
+    .step-arrow { color: #444; }
+
+    .card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px;
+      padding: 32px;
+      width: 100%;
+      max-width: 580px;
+      backdrop-filter: blur(10px);
+    }
+
+    /* 로딩 */
+    .spinner-wrap { display: none; text-align: center; padding: 40px 0; }
+    .spinner {
+      width: 52px; height: 52px;
+      border: 4px solid rgba(226,185,111,0.2);
+      border-top-color: #e2b96f;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-wrap p   { color: #a0a8c0; font-size: 0.92rem; }
+    .spinner-wrap small { color: #555; font-size: 0.78rem; margin-top: 6px; display: block; }
+
+    /* 오류 */
+    .error-box {
+      display: none;
+      background: rgba(220,60,60,0.12);
+      border: 1px solid rgba(220,60,60,0.35);
+      border-radius: 10px; padding: 16px 20px;
+      color: #f08080; font-size: 0.9rem;
+    }
+
+    /* 프로필 헤더 (썸네일 + 인상) */
+    .profile-header {
+      display: flex; align-items: center; gap: 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 14px; padding: 16px 18px; margin-bottom: 20px;
+    }
+    .profile-header img {
+      width: 64px; height: 64px; border-radius: 50%;
+      object-fit: cover; border: 2px solid rgba(226,185,111,0.4);
+      flex-shrink: 0;
+    }
+    .profile-header .impression { font-size: 0.88rem; color: #c8d0e8; line-height: 1.5; }
+    .profile-header .impression strong { color: #f5deb3; display: block; margin-bottom: 4px; font-size: 0.95rem; }
+
+    /* 요약 배너 */
+    .reading-summary {
+      background: linear-gradient(135deg, rgba(226,185,111,0.18), rgba(200,151,58,0.06));
+      border: 1px solid rgba(226,185,111,0.4);
+      border-radius: 14px; padding: 18px 20px;
+      text-align: center; margin-bottom: 20px;
+    }
+    .reading-summary .sum-label { font-size: 0.72rem; color: #e2b96f; letter-spacing: 1.5px; margin-bottom: 8px; text-transform: uppercase; }
+    .reading-summary .sum-text  { font-size: 1rem; color: #f5deb3; line-height: 1.65; }
+
+    /* 카테고리 카드 */
+    .cat-grid { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 20px; }
+    .cat-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 14px; padding: 18px 20px;
+      transition: border-color 0.2s;
+    }
+    .cat-card:hover { border-color: rgba(226,185,111,0.3); }
+    .cat-card .cat-title { font-size: 0.88rem; color: #e2b96f; font-weight: 700; margin-bottom: 8px; }
+    .cat-card .cat-icon  { margin-right: 6px; }
+    .cat-card .cat-content { font-size: 0.87rem; color: #c8d0e8; line-height: 1.75; margin-bottom: 10px; }
+    .keywords { display: flex; flex-wrap: wrap; gap: 6px; }
+    .kw-tag {
+      background: rgba(226,185,111,0.1);
+      border: 1px solid rgba(226,185,111,0.25);
+      color: #e2b96f; font-size: 0.74rem;
+      padding: 3px 10px; border-radius: 20px;
+    }
+
+    /* 행운 */
+    .lucky-section {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 14px; padding: 18px 20px; margin-bottom: 20px;
+    }
+    .lucky-section .sec-title { font-size: 0.88rem; color: #e2b96f; font-weight: 700; margin-bottom: 14px; }
+    .lucky-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; text-align: center; }
+    .lucky-item .lk-label { font-size: 0.7rem; color: #a0a8c0; margin-bottom: 6px; }
+    .lucky-item .lk-value { font-size: 1.1rem; color: #f5deb3; font-weight: 700; }
+    .color-dot {
+      display: inline-block; width: 18px; height: 18px;
+      border-radius: 50%; margin-bottom: 4px; border: 2px solid rgba(255,255,255,0.2);
+      vertical-align: middle;
+    }
+
+    /* 마무리 메시지 */
+    .closing-msg {
+      background: linear-gradient(135deg, rgba(100,120,200,0.12), rgba(80,100,180,0.05));
+      border: 1px solid rgba(130,150,230,0.22);
+      border-radius: 12px; padding: 16px 20px;
+      text-align: center; font-size: 0.95rem;
+      color: #c8d0f0; font-style: italic; margin-bottom: 24px;
+      line-height: 1.7;
+    }
+
+    /* 버튼 */
+    .action-row { display: flex; gap: 10px; }
+    button {
+      flex: 1; padding: 12px; border-radius: 10px; border: none;
+      cursor: pointer; font-size: 0.88rem; font-weight: 600; transition: all 0.2s;
+    }
+    .btn-share { background: linear-gradient(135deg, #5b8dee, #3b6bd0); color: #fff; }
+    .btn-share:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-save  { background: linear-gradient(135deg, #52b788, #2d9e68); color: #fff; }
+    .btn-save:hover  { opacity: 0.9; transform: translateY(-1px); }
+    .btn-back  { background: rgba(255,255,255,0.07); color: #a0a8c0; border: 1px solid rgba(255,255,255,0.12); }
+
+    /* 토스트 */
+    #toast {
+      display: none; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+      background: #2d9e68; color: #fff; padding: 12px 24px;
+      border-radius: 30px; font-size: 0.9rem; font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4); z-index: 999;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>✦ 관상 분석</h1>
+  <p>AI가 관상을 풀이합니다</p>
+</header>
+
+<div class="steps">
+  <span class="step done">1단계 ✓</span>
+  <span class="step-arrow">›</span>
+  <span class="step active">2단계 · 관상 풀이</span>
+  <span class="step-arrow">›</span>
+  <span class="step inactive">3단계 · 저장</span>
+</div>
+
+<div class="card">
+
+  <!-- 로딩 -->
+  <div class="spinner-wrap" id="loading">
+    <div class="spinner"></div>
+    <p>관상을 살펴보는 중입니다…</p>
+    <small>AI가 분석 중입니다. 잠시만 기다려주세요 (약 30~90초)</small>
+  </div>
+
+  <!-- 오류 -->
+  <div class="error-box" id="error-box">
+    <span id="error-msg"></span>
+    <div style="display:flex;gap:10px;margin-top:12px;">
+      <button class="btn-back" onclick="location.href='/'">← 처음으로</button>
+      <button class="btn-share" onclick="retryReading()">다시 시도</button>
+    </div>
+  </div>
+
+  <!-- 결과 (초기 숨김) -->
+  <div id="result" style="display:none;">
+
+    <!-- 프로필 헤더 -->
+    <div class="profile-header" id="profile-header">
+      <img id="thumb" src="" alt="사진" />
+      <div class="impression">
+        <strong id="overall-impression"></strong>
+        <span id="confidence-text"></span>
+      </div>
+    </div>
+
+    <!-- 요약 -->
+    <div class="reading-summary">
+      <div class="sum-label">✦ 종합 관상</div>
+      <div class="sum-text" id="reading-summary"></div>
+    </div>
+
+    <!-- 카테고리 5개 -->
+    <div class="cat-grid" id="cat-grid"></div>
+
+    <!-- 행운 -->
+    <div class="lucky-section">
+      <div class="sec-title">✨ 나의 행운</div>
+      <div class="lucky-grid">
+        <div class="lucky-item">
+          <div class="lk-label">행운의 색상</div>
+          <div><span class="color-dot" id="lucky-dot"></span></div>
+          <div class="lk-value" id="lucky-color"></div>
+        </div>
+        <div class="lucky-item">
+          <div class="lk-label">행운의 숫자</div>
+          <div class="lk-value" id="lucky-number"></div>
+        </div>
+        <div class="lucky-item">
+          <div class="lk-label">행운의 방향</div>
+          <div class="lk-value" id="lucky-direction"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 마무리 -->
+    <div class="closing-msg" id="closing-msg"></div>
+
+    <!-- 버튼 -->
+    <div class="action-row">
+      <button class="btn-share" id="share-btn">🔗 공유하기</button>
+      <button class="btn-save"  id="save-btn">💾 저장하기</button>
+      <button class="btn-back"  onclick="location.href='/'">↩ 처음으로</button>
+    </div>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  const CAT_ICONS = {
+    personality:"🌿", wealth:"💰", health:"❤️", relationships:"🤝", career:"⭐"
+  };
+  const COLOR_MAP = {
+    "빨강":"#e05252","빨간":"#e05252","레드":"#e05252",
+    "파랑":"#5288e0","파란":"#5288e0","블루":"#5288e0","딥 블루":"#2255b0","네이비":"#1a2e80",
+    "초록":"#52c07a","초록색":"#52c07a","그린":"#52c07a",
+    "노랑":"#e0c952","노란":"#e0c952","골드":"#c8973a","금":"#c8973a",
+    "주황":"#e08a30","오렌지":"#e08a30",
+    "보라":"#9b5de5","자주":"#9b5de5","퍼플":"#9b5de5",
+    "하늘":"#7ecbf5","하늘색":"#7ecbf5","스카이블루":"#7ecbf5",
+    "흰":"#f0f0f0","화이트":"#f0f0f0","은":"#c0c0c0","실버":"#c0c0c0",
+    "검정":"#333","블랙":"#333","갈":"#8b5e3c","브라운":"#8b5e3c",
+    "분홍":"#e87aa0","핑크":"#e87aa0",
+    "에메랄드":"#31c993","민트":"#4ecdc4","청록":"#2eb8b8",
+  };
+
+  const step1 = JSON.parse(localStorage.getItem("step1_result") || "null");
+  const thumb  = localStorage.getItem("step1_thumbnail") || "";
+
+  // Step 1 데이터 없으면 첫 페이지로
+  if (!step1 || !step1.features) {
+    location.href = "/";
+  } else {
+    // 썸네일
+    document.getElementById("thumb").src = thumb;
+    // 전체 인상
+    document.getElementById("overall-impression").textContent = step1.features.overall_impression || "";
+    document.getElementById("confidence-text").textContent =
+      `분석 신뢰도 ${Math.round((step1.confidence || 0) * 100)}%`;
+    // 관상 풀이 시작
+    runReading();
+  }
+
+  async function runReading() {
+    document.getElementById("loading").style.display = "block";
+    document.getElementById("result").style.display  = "none";
+    document.getElementById("error-box").style.display = "none";
+
+    try {
+      const res  = await fetch("/api/reading", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ features: step1.features }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) { showError(data.detail || "관상 풀이 중 오류가 발생했습니다."); return; }
+
+      localStorage.setItem("step2_result", JSON.stringify(data));
+      renderReading(data);
+
+    } catch (err) {
+      showError("네트워크 오류가 발생했습니다.");
+    } finally {
+      document.getElementById("loading").style.display = "none";
+    }
+  }
+
+  function retryReading() {
+    document.getElementById("error-box").style.display = "none";
+    runReading();
+  }
+
+  function renderReading(data) {
+    // 요약
+    document.getElementById("reading-summary").textContent = data.summary || "";
+
+    // 카테고리
+    const grid = document.getElementById("cat-grid");
+    grid.innerHTML = "";
+    Object.entries(data.categories || {}).forEach(([key, cat]) => {
+      const icon = CAT_ICONS[key] || "✦";
+      const kws  = (cat.keywords || []).map(k => `<span class="kw-tag">${k}</span>`).join("");
+      const div  = document.createElement("div");
+      div.className = "cat-card";
+      div.innerHTML = `
+        <div class="cat-title"><span class="cat-icon">${icon}</span>${cat.title || ""}</div>
+        <div class="cat-content">${cat.content || ""}</div>
+        <div class="keywords">${kws}</div>`;
+      grid.appendChild(div);
+    });
+
+    // 행운
+    const lucky = data.lucky || {};
+    document.getElementById("lucky-color").textContent     = lucky.color     || "-";
+    document.getElementById("lucky-number").textContent    = lucky.number    || "-";
+    document.getElementById("lucky-direction").textContent = lucky.direction || "-";
+    const colorKey = Object.keys(COLOR_MAP).find(k => (lucky.color || "").includes(k));
+    document.getElementById("lucky-dot").style.background = colorKey ? COLOR_MAP[colorKey] : "#e2b96f";
+
+    // 마무리
+    document.getElementById("closing-msg").textContent = data.closing_message || "";
+
+    document.getElementById("result").style.display = "block";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // 공유
+  document.getElementById("share-btn").onclick = async () => {
+    const d2 = JSON.parse(localStorage.getItem("step2_result") || "{}");
+    const cats = d2.categories || {};
+    const lucky = d2.lucky || {};
+    const lines = [`✦ 나의 관상 풀이\n${d2.summary || ""}\n`];
+    Object.values(cats).forEach(c => lines.push(`[${c.title}]\n${c.content}`));
+    lines.push(`\n🍀 행운: ${lucky.color} / ${lucky.number} / ${lucky.direction}`);
+    lines.push(`\n${d2.closing_message || ""}`);
+    const text = lines.join("\n");
+    if (navigator.share) {
+      await navigator.share({ title: "나의 관상 풀이", text });
+    } else {
+      await navigator.clipboard.writeText(text);
+      showToast("클립보드에 복사되었습니다!");
+    }
+  };
+
+  // 저장
+  document.getElementById("save-btn").onclick = () => {
+    const d2 = JSON.parse(localStorage.getItem("step2_result") || "null");
+    if (!step1 || !d2) return;
+    const record = {
+      id: crypto.randomUUID(),
+      created_at: new Date().toISOString(),
+      thumbnail: thumb,
+      step1_features: step1.features,
+      step2_reading:  d2,
+    };
+    const records = JSON.parse(localStorage.getItem("reading_records") || "[]");
+    records.unshift(record);
+    if (records.length > 10) records.pop();
+    localStorage.setItem("reading_records", JSON.stringify(records));
+    showToast("저장되었습니다!");
+  };
+
+  function showError(msg) {
+    document.getElementById("error-msg").textContent = msg;
+    document.getElementById("error-box").style.display = "block";
+  }
+  function showToast(msg) {
+    const t = document.getElementById("toast");
+    t.textContent = msg; t.style.display = "block";
+    setTimeout(() => t.style.display = "none", 2500);
+  }
+</script>
+</body>
+</html>

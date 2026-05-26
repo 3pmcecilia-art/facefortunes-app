@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>관상 분석 — 사진 업로드</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Apple SD Gothic Neo', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      color: #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px 60px;
+    }
+
+    header { text-align: center; margin-bottom: 36px; }
+    header h1 {
+      font-size: 2rem;
+      background: linear-gradient(90deg, #e2b96f, #f5deb3);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 2px;
+    }
+    header p { color: #a0a8c0; margin-top: 8px; font-size: 0.95rem; }
+
+    /* 단계 표시 */
+    .steps {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 28px; font-size: 0.82rem;
+    }
+    .step { padding: 5px 14px; border-radius: 20px; }
+    .step.active { background: rgba(226,185,111,0.2); color: #e2b96f; border: 1px solid rgba(226,185,111,0.4); font-weight: 700; }
+    .step.inactive { color: #555; border: 1px solid #333; }
+    .step-arrow { color: #444; }
+
+    .card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 20px;
+      padding: 32px;
+      width: 100%;
+      max-width: 560px;
+      backdrop-filter: blur(10px);
+    }
+
+    /* 업로드 존 */
+    #drop-zone {
+      border: 2px dashed rgba(226,185,111,0.5);
+      border-radius: 14px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    #drop-zone:hover, #drop-zone.drag-over {
+      border-color: #e2b96f;
+      background: rgba(226,185,111,0.06);
+    }
+    #drop-zone .icon { font-size: 2.8rem; margin-bottom: 12px; }
+    #drop-zone p { color: #a0a8c0; font-size: 0.9rem; line-height: 1.6; }
+    #drop-zone strong { color: #e2b96f; }
+
+    .btn-row { display: flex; gap: 10px; margin-top: 16px; }
+    button {
+      flex: 1; padding: 12px; border-radius: 10px; border: none;
+      cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.2s;
+    }
+    .btn-primary { background: linear-gradient(135deg, #e2b96f, #c8973a); color: #1a1a2e; }
+    .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-secondary { background: rgba(255,255,255,0.08); color: #e0e0e0; border: 1px solid rgba(255,255,255,0.15); }
+    .btn-secondary:hover { background: rgba(255,255,255,0.14); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* 미리보기 */
+    #preview-wrap { display: none; margin-top: 20px; text-align: center; }
+    #preview-wrap img {
+      max-width: 100%; max-height: 280px;
+      border-radius: 12px; border: 2px solid rgba(226,185,111,0.3); object-fit: cover;
+    }
+    #change-btn {
+      margin-top: 10px; background: none; border: none;
+      color: #a0a8c0; font-size: 0.82rem; cursor: pointer;
+      text-decoration: underline; flex: none; padding: 4px 0;
+    }
+
+    /* 로딩 */
+    .spinner-wrap { display: none; text-align: center; margin-top: 24px; }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 4px solid rgba(226,185,111,0.2);
+      border-top-color: #e2b96f;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-wrap p { color: #a0a8c0; font-size: 0.9rem; }
+
+    /* 오류 */
+    .error-box {
+      display: none; margin-top: 20px;
+      background: rgba(220,60,60,0.12);
+      border: 1px solid rgba(220,60,60,0.35);
+      border-radius: 10px; padding: 16px 20px;
+      color: #f08080; font-size: 0.9rem;
+    }
+
+    /* Step 1 결과 */
+    #step1-result { display: none; margin-top: 28px; }
+    .section-title { font-size: 1rem; color: #e2b96f; margin-bottom: 14px; text-align: center; letter-spacing: 1px; }
+    .impression-banner {
+      background: linear-gradient(135deg, rgba(226,185,111,0.15), rgba(226,185,111,0.05));
+      border: 1px solid rgba(226,185,111,0.3);
+      border-radius: 12px; padding: 14px 18px; margin-bottom: 16px;
+      font-size: 0.95rem; color: #f5deb3; text-align: center; font-style: italic;
+    }
+    .features-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .feature-item {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px; padding: 12px 14px;
+    }
+    .feature-item .label { font-size: 0.72rem; color: #e2b96f; margin-bottom: 4px; font-weight: 600; }
+    .feature-item .value { font-size: 0.83rem; color: #d0d8f0; line-height: 1.45; }
+    .confidence-bar {
+      margin-top: 14px; font-size: 0.8rem; color: #a0a8c0;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .bar-track { flex: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+    .bar-fill { height: 100%; background: linear-gradient(90deg, #e2b96f, #f5deb3); border-radius: 3px; transition: width 0.8s ease; }
+
+    /* 다음 단계 버튼 */
+    .next-btn-wrap { margin-top: 20px; }
+    .btn-next {
+      background: linear-gradient(135deg, #e2b96f, #c8973a);
+      color: #1a1a2e; font-size: 1rem; padding: 14px;
+      border-radius: 12px; width: 100%; font-weight: 700;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(226,185,111,0.4); }
+      50%       { box-shadow: 0 0 0 8px rgba(226,185,111,0); }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>✦ 관상 분석</h1>
+  <p>사진을 올리면 AI가 얼굴 특징을 분석합니다</p>
+</header>
+
+<div class="steps">
+  <span class="step active">1단계 · 얼굴 분석</span>
+  <span class="step-arrow">›</span>
+  <span class="step inactive">2단계 · 관상 풀이</span>
+  <span class="step-arrow">›</span>
+  <span class="step inactive">3단계 · 저장</span>
+</div>
+
+<div class="card">
+
+  <!-- 업로드 존 -->
+  <div id="drop-zone">
+    <div class="icon">🖼️</div>
+    <p><strong>사진을 여기에 드래그</strong>하거나<br>클릭하여 파일을 선택하세요</p>
+    <p style="margin-top:8px;font-size:0.8rem;">JPG · PNG · WEBP / 최대 10MB</p>
+  </div>
+  <input type="file" id="file-input"   accept="image/jpeg,image/png,image/webp" style="display:none" />
+  <input type="file" id="camera-input" accept="image/*" capture="user" style="display:none" />
+
+  <div class="btn-row" id="upload-btns">
+    <button class="btn-primary"   id="upload-btn">📂 파일 선택</button>
+    <button class="btn-secondary" id="camera-btn">📷 카메라</button>
+  </div>
+
+  <!-- 미리보기 -->
+  <div id="preview-wrap">
+    <img id="preview-img" src="" alt="미리보기" />
+    <br/>
+    <button id="change-btn">다른 사진 선택</button>
+    <div class="btn-row" style="margin-top:12px;">
+      <button class="btn-primary" id="analyze-btn">🔍 얼굴 분석 시작</button>
+    </div>
+  </div>
+
+  <!-- 로딩 -->
+  <div class="spinner-wrap" id="step1-loading">
+    <div class="spinner"></div>
+    <p>얼굴 특징을 분석하는 중입니다…</p>
+  </div>
+
+  <!-- 오류 -->
+  <div class="error-box" id="error-box">
+    <span id="error-msg"></span>
+    <div class="btn-row" style="margin-top:12px;">
+      <button class="btn-secondary" id="retry-btn">다시 시도</button>
+    </div>
+  </div>
+
+  <!-- Step 1 결과 -->
+  <div id="step1-result">
+    <p class="section-title">✦ 얼굴 특징 분석 완료</p>
+    <div class="impression-banner" id="overall-impression"></div>
+    <div class="features-grid"    id="features-grid"></div>
+    <div class="confidence-bar">
+      <span>분석 신뢰도</span>
+      <div class="bar-track"><div class="bar-fill" id="conf-fill" style="width:0%"></div></div>
+      <span id="conf-pct">0%</span>
+    </div>
+    <div class="next-btn-wrap">
+      <button class="btn-next" id="next-btn">관상 풀이 보기 →</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const LABELS = {
+    overall_shape:"얼굴형", forehead:"이마", eyes:"눈", eyebrows:"눈썹",
+    nose:"코", mouth:"입", chin:"턱", cheekbones:"광대", skin_tone:"피부톤",
+  };
+
+  const dropZone    = document.getElementById("drop-zone");
+  const fileInput   = document.getElementById("file-input");
+  const cameraInput = document.getElementById("camera-input");
+  const previewWrap = document.getElementById("preview-wrap");
+  const previewImg  = document.getElementById("preview-img");
+  const uploadBtns  = document.getElementById("upload-btns");
+
+  document.getElementById("upload-btn").onclick = () => fileInput.click();
+  document.getElementById("camera-btn").onclick = () => cameraInput.click();
+  document.getElementById("change-btn").onclick = () => { reset(); fileInput.click(); };
+  document.getElementById("retry-btn").onclick  = () => hideError();
+  document.getElementById("next-btn").onclick   = () => location.href = "/reading";
+
+  fileInput.onchange   = e => handleFile(e.target.files[0]);
+  cameraInput.onchange = e => handleFile(e.target.files[0]);
+
+  dropZone.onclick     = () => fileInput.click();
+  dropZone.ondragover  = e => { e.preventDefault(); dropZone.classList.add("drag-over"); };
+  dropZone.ondragleave = () => dropZone.classList.remove("drag-over");
+  dropZone.ondrop = e => {
+    e.preventDefault(); dropZone.classList.remove("drag-over");
+    const f = e.dataTransfer.files[0]; if (f) handleFile(f);
+  };
+
+  function handleFile(file) {
+    if (!file) return;
+    if (!["image/jpeg","image/png","image/webp"].includes(file.type)) {
+      showError("JPG, PNG, WEBP 형식만 업로드할 수 있습니다."); return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showError("파일 크기는 10MB 이하여야 합니다."); return;
+    }
+    previewImg.src = URL.createObjectURL(file);
+    previewWrap.style.display = "block";
+    dropZone.style.display    = "none";
+    uploadBtns.style.display  = "none";
+    document.getElementById("step1-result").style.display = "none";
+    hideError();
+    window._selectedFile = file;
+  }
+
+  document.getElementById("analyze-btn").onclick = async () => {
+    const file = window._selectedFile;
+    if (!file) return;
+
+    show("step1-loading"); hide("step1-result"); hideError();
+    document.getElementById("analyze-btn").disabled = true;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res  = await fetch("/api/analyze", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (!res.ok)             { showError(data.detail || "서버 오류가 발생했습니다."); return; }
+      if (!data.face_detected) { showError(data.message || "얼굴을 찾을 수 없습니다. 정면 사진을 올려주세요."); return; }
+
+      // localStorage에 저장 (reading.html에서 사용)
+      localStorage.setItem("step1_result",  JSON.stringify(data));
+      localStorage.setItem("step1_thumbnail", previewImg.src);
+
+      renderStep1(data);
+
+    } catch (err) {
+      showError("네트워크 오류가 발생했습니다. 다시 시도해주세요.");
+    } finally {
+      hide("step1-loading");
+      document.getElementById("analyze-btn").disabled = false;
+    }
+  };
+
+  function renderStep1(data) {
+    const features = data.features || {};
+    document.getElementById("overall-impression").textContent = features.overall_impression || "";
+
+    const grid = document.getElementById("features-grid");
+    grid.innerHTML = "";
+    Object.entries(LABELS).forEach(([key, label]) => {
+      if (!features[key]) return;
+      const d = document.createElement("div");
+      d.className = "feature-item";
+      d.innerHTML = `<div class="label">${label}</div><div class="value">${features[key]}</div>`;
+      grid.appendChild(d);
+    });
+
+    const pct = Math.round((data.confidence || 0) * 100);
+    document.getElementById("conf-fill").style.width = pct + "%";
+    document.getElementById("conf-pct").textContent  = pct + "%";
+
+    show("step1-result");
+    document.getElementById("step1-result").scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function show(id) { document.getElementById(id).style.display = "block"; }
+  function hide(id) { document.getElementById(id).style.display = "none";  }
+  function showError(msg) {
+    document.getElementById("error-msg").textContent = msg;
+    show("error-box"); hide("step1-loading");
+  }
+  function hideError() { hide("error-box"); }
+  function reset() {
+    window._selectedFile = null;
+    previewWrap.style.display = "none";
+    dropZone.style.display    = "block";
+    uploadBtns.style.display  = "flex";
+    hide("step1-result"); hideError();
+    fileInput.value = ""; cameraInput.value = "";
+  }
+</script>
+</body>
+</html>
