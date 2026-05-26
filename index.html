@@ -246,6 +246,7 @@
       box-shadow: 0 4px 20px rgba(0,0,0,0.4); z-index: 999;
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -431,6 +432,11 @@
 <div id="toast"></div>
 
 <script>
+// ── Supabase ──────────────────────────────────────────────────────────────────
+const SUPABASE_URL  = "https://cuctknvvcovirkjkzatp.supabase.co";
+const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1Y3RrbnZ2Y292aXJramt6YXRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NzYwMzUsImV4cCI6MjA5NTM1MjAzNX0.yCWt5158EFWywpL-0th-HFVw6ETjYjMSB5G2-tzZjvs";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
 // ── 상수 ──────────────────────────────────────────────────────────────────────
 const ENDPOINT  = "https://openrouter.ai/api/v1/chat/completions";
 const MODEL_IMG = "qwen/qwen3.5-flash-02-23";
@@ -700,15 +706,36 @@ async function shareResult() {
   else { await navigator.clipboard.writeText(text); showToast("클립보드에 복사되었습니다!"); }
 }
 
-function saveRecord() {
+async function saveRecord() {
   const d2 = JSON.parse(localStorage.getItem("step2_result") || "null");
   if (!step1Data || !d2) return;
-  const records = JSON.parse(localStorage.getItem("reading_records") || "[]");
-  records.unshift({ id: crypto.randomUUID(), created_at: new Date().toISOString(),
-    thumbnail: thumbSrc, step1_features: step1Data.features, step2_reading: d2 });
-  if (records.length > 10) records.pop();
-  localStorage.setItem("reading_records", JSON.stringify(records));
-  showToast("저장되었습니다!");
+
+  const canvas = document.createElement("canvas");
+  const img = document.getElementById("preview-img");
+  const MAX = 256;
+  let [w, h] = [img.naturalWidth || 256, img.naturalHeight || 256];
+  if (w > MAX || h > MAX) {
+    if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+    else        { w = Math.round(w * MAX / h); h = MAX; }
+  }
+  canvas.width = w; canvas.height = h;
+  canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+  const thumbData = canvas.toDataURL("image/jpeg", 0.7);
+
+  const { error } = await supabase.from("face_results").insert({
+    thumbnail:          thumbData,
+    step1_features:     step1Data.features,
+    step2_reading:      d2,
+    overall_impression: step1Data.features?.overall_impression || "",
+    confidence:         step1Data.confidence || 0,
+  });
+
+  if (error) {
+    showToast("저장 실패: " + error.message);
+    console.error("Supabase save error:", error);
+  } else {
+    showToast("Supabase에 저장되었습니다!");
+  }
 }
 
 // ── 리셋 ──────────────────────────────────────────────────────────────────────
