@@ -400,9 +400,9 @@
 
       <!-- 버튼 -->
       <div class="action-row">
-        <button class="btn-share"     onclick="shareResult()">🔗 공유하기</button>
-        <button class="btn-save"      onclick="saveRecord()">💾 저장하기</button>
-        <button class="btn-secondary" onclick="goToStep1()">↩ 처음으로</button>
+        <button class="btn-share"      onclick="shareResult()">🔗 공유하기</button>
+        <button class="btn-save" id="save-btn" onclick="retrySave()">💾 저장하기</button>
+        <button class="btn-secondary"  onclick="goToStep1()">↩ 처음으로</button>
       </div>
     </div>
   </div>
@@ -448,7 +448,9 @@ const FEAT_LABELS = {
 // ── 상태 ──────────────────────────────────────────────────────────────────────
 const apiKey  = (typeof OPENROUTER_API_KEY !== "undefined") ? OPENROUTER_API_KEY : "";
 let step1Data = null;
+let step2Data = null;
 let thumbSrc  = "";
+let savedToDb = false;
 
 // ── 초기화 ────────────────────────────────────────────────────────────────────
 (function init() {
@@ -616,7 +618,7 @@ async function runStep2() {
     ], 2048);
 
     const data = extractJSON(raw);
-    localStorage.setItem("step2_result", JSON.stringify(data));
+    step2Data = data;
     renderStep2(data);
 
   } catch (e) {
@@ -655,25 +657,24 @@ function renderStep2(data) {
   document.getElementById("closing-msg").textContent = data.closing_message || "";
   show("step2-result");
   window.scrollTo({ top: 0, behavior: "smooth" });
+  savedToDb = false;
+  autoSaveToSupabase();
 }
 
 // ── 공유 & 저장 ───────────────────────────────────────────────────────────────
 async function shareResult() {
-  const d2 = JSON.parse(localStorage.getItem("step2_result") || "{}");
-  const lucky = d2.lucky || {};
-  const lines = [`✦ AI 관상 분석 결과\n${d2.summary || ""}\n`];
-  Object.values(d2.categories || {}).forEach(c => lines.push(`[${c.title}]\n${c.content}`));
+  if (!step2Data) return;
+  const lucky = step2Data.lucky || {};
+  const lines = [`✦ AI 관상 분석 결과\n${step2Data.summary || ""}\n`];
+  Object.values(step2Data.categories || {}).forEach(c => lines.push(`[${c.title}]\n${c.content}`));
   lines.push(`\n🍀 행운: ${lucky.color} / ${lucky.number} / ${lucky.direction}`);
-  lines.push(`\n${d2.closing_message || ""}`);
+  lines.push(`\n${step2Data.closing_message || ""}`);
   const text = lines.join("\n");
   if (navigator.share) { await navigator.share({ title: "나의 관상 풀이", text }); }
   else { await navigator.clipboard.writeText(text); showToast("클립보드에 복사되었습니다!"); }
 }
 
-async function saveRecord() {
-  const d2 = JSON.parse(localStorage.getItem("step2_result") || "null");
-  if (!step1Data || !d2) return;
-
+function makeThumbnail() {
   const canvas = document.createElement("canvas");
   const img = document.getElementById("preview-img");
   const MAX = 256;
@@ -684,29 +685,44 @@ async function saveRecord() {
   }
   canvas.width = w; canvas.height = h;
   canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-  const thumbData = canvas.toDataURL("image/jpeg", 0.7);
+  return canvas.toDataURL("image/jpeg", 0.7);
+}
 
-  if (!supabase) { showToast("저장 기능을 사용할 수 없습니다 (Supabase 연결 실패)"); return; }
+async function autoSaveToSupabase() {
+  if (!supabase || !step1Data || !step2Data) return;
+
+  const btn = document.getElementById("save-btn");
+  if (btn) { btn.disabled = true; btn.textContent = "저장 중..."; }
 
   const { error } = await supabase.from("face_results").insert({
-    thumbnail:          thumbData,
+    thumbnail:          makeThumbnail(),
     step1_features:     step1Data.features,
-    step2_reading:      d2,
+    step2_reading:      step2Data,
     overall_impression: step1Data.features?.overall_impression || "",
     confidence:         step1Data.confidence || 0,
   });
 
   if (error) {
+    console.error("Supabase 저장 오류:", error);
+    if (btn) { btn.disabled = false; btn.textContent = "💾 다시 저장"; }
     showToast("저장 실패: " + error.message);
-    console.error("Supabase save error:", error);
   } else {
-    showToast("Supabase에 저장되었습니다!");
+    savedToDb = true;
+    if (btn) { btn.disabled = true; btn.textContent = "✓ 저장됨"; }
+    showToast("분석 결과가 저장되었습니다!");
   }
+}
+
+async function retrySave() {
+  if (savedToDb) return;
+  await autoSaveToSupabase();
 }
 
 // ── 리셋 ──────────────────────────────────────────────────────────────────────
 function resetUpload() {
-  window._file = null; thumbSrc = ""; step1Data = null;
+  window._file = null; thumbSrc = ""; step1Data = null; step2Data = null; savedToDb = false;
+  const btn = document.getElementById("save-btn");
+  if (btn) { btn.disabled = false; btn.textContent = "💾 저장하기"; }
   document.getElementById("preview-wrap").style.display = "none";
   document.getElementById("drop-zone").style.display    = "block";
   document.getElementById("upload-btns").style.display  = "flex";
