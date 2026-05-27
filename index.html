@@ -414,27 +414,6 @@
 
 <div id="toast"></div>
 
-<!-- API 키 모달 -->
-<div id="key-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);
-     z-index:1000;align-items:center;justify-content:center;">
-  <div style="background:#1a1a2e;border:1px solid rgba(226,185,111,0.3);border-radius:20px;
-              padding:32px 28px;width:90%;max-width:420px;box-shadow:0 8px 40px rgba(0,0,0,0.6);">
-    <h2 style="font-size:1rem;color:#e2b96f;margin-bottom:10px;">🔑 OpenRouter API 키</h2>
-    <p style="font-size:0.82rem;color:#a0a8c0;margin-bottom:16px;line-height:1.6;">
-      API 키를 입력하면 이 브라우저에만 저장됩니다.<br>
-      <a href="https://openrouter.ai/keys" target="_blank" style="color:#7a8fc0;">openrouter.ai/keys</a>에서 무료로 발급받을 수 있습니다.
-    </p>
-    <input id="api-key-input" type="password" placeholder="sk-or-v1-..."
-           style="width:100%;padding:11px 14px;border-radius:10px;background:rgba(255,255,255,0.07);
-                  border:1px solid rgba(255,255,255,0.15);color:#e0e0e0;font-size:0.85rem;
-                  font-family:monospace;outline:none;box-sizing:border-box;margin-bottom:8px;" />
-    <p id="key-modal-error" style="display:none;color:#f08080;font-size:0.8rem;margin-bottom:10px;"></p>
-    <button onclick="saveKeyFromModal()"
-            style="width:100%;padding:12px;border-radius:10px;border:none;cursor:pointer;
-                   background:linear-gradient(135deg,#e2b96f,#c8973a);color:#1a1a2e;
-                   font-size:0.92rem;font-weight:700;">저장하고 시작</button>
-  </div>
-</div>
 
 <script>
 // ── Supabase ──────────────────────────────────────────────────────────────────
@@ -472,41 +451,14 @@ const FEAT_LABELS = {
 };
 
 // ── 상태 ──────────────────────────────────────────────────────────────────────
-let apiKey = localStorage.getItem("or_api_key")
-  || (typeof OPENROUTER_API_KEY !== "undefined" ? OPENROUTER_API_KEY : "");
+const apiKey = (typeof OPENROUTER_API_KEY !== "undefined") ? OPENROUTER_API_KEY : "";
 let step1Data = null;
 let step2Data = null;
 let thumbSrc  = "";
 let savedToDb = false;
 
-// ── API 키 모달 ───────────────────────────────────────────────────────────────
-function showKeyModal(errorMsg) {
-  const modal = document.getElementById("key-modal");
-  const errEl = document.getElementById("key-modal-error");
-  const input = document.getElementById("api-key-input");
-  modal.style.display = "flex";
-  if (errorMsg) { errEl.textContent = errorMsg; errEl.style.display = "block"; }
-  else errEl.style.display = "none";
-  if (input) { input.value = apiKey; setTimeout(() => input.focus(), 100); }
-}
-function saveKeyFromModal() {
-  const val = document.getElementById("api-key-input").value.trim();
-  if (!val) {
-    document.getElementById("key-modal-error").textContent = "API 키를 입력해주세요.";
-    document.getElementById("key-modal-error").style.display = "block";
-    return;
-  }
-  apiKey = val;
-  localStorage.setItem("or_api_key", val);
-  document.getElementById("key-modal").style.display = "none";
-}
-
 // ── 초기화 ────────────────────────────────────────────────────────────────────
 (function init() {
-  if (!apiKey) showKeyModal();
-
-  document.getElementById("api-key-input")
-    ?.addEventListener("keydown", e => { if (e.key === "Enter") saveKeyFromModal(); });
 
   document.getElementById("file-input").onchange   = e => handleFile(e.target.files[0]);
   document.getElementById("camera-input").onchange = e => handleFile(e.target.files[0]);
@@ -613,8 +565,7 @@ async function callOR(model, messages, maxTokens) {
   if (!res.ok) {
     const msg = data.error?.message || `HTTP ${res.status}`;
     if (res.status === 401 || msg.toLowerCase().includes("user not found") || msg.toLowerCase().includes("invalid api key")) {
-      showKeyModal("API 키가 유효하지 않습니다. 새 키를 입력해주세요.");
-      throw new Error("API 키 오류 — 새 키를 입력했다면 다시 시도해주세요.");
+      throw new Error("API 키가 유효하지 않습니다. config.js의 OPENROUTER_API_KEY를 확인해주세요.");
     }
     throw new Error(msg);
   }
