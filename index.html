@@ -60,21 +60,23 @@
     }
 
     /* ── 버튼 ── */
-    button {
+    button, label.btn-file {
       padding: 11px 16px; border-radius: 10px; border: none;
       cursor: pointer; font-size: 0.88rem; font-weight: 600; transition: all 0.2s;
+      display: inline-flex; align-items: center; justify-content: center;
+      text-align: center; box-sizing: border-box;
     }
-    .btn-primary  { background: linear-gradient(135deg, #e2b96f, #c8973a); color: #1a1a2e; }
-    .btn-primary:hover  { opacity: 0.88; transform: translateY(-1px); }
-    .btn-secondary{ background: rgba(255,255,255,0.08); color: #e0e0e0; border: 1px solid rgba(255,255,255,0.15); }
-    .btn-secondary:hover{ background: rgba(255,255,255,0.14); }
+    .btn-primary, label.btn-file.btn-primary  { background: linear-gradient(135deg, #e2b96f, #c8973a); color: #1a1a2e; }
+    .btn-primary:hover, label.btn-file.btn-primary:hover  { opacity: 0.88; transform: translateY(-1px); }
+    .btn-secondary, label.btn-file.btn-secondary { background: rgba(255,255,255,0.08); color: #e0e0e0; border: 1px solid rgba(255,255,255,0.15); }
+    .btn-secondary:hover, label.btn-file.btn-secondary:hover { background: rgba(255,255,255,0.14); }
     .btn-share    { background: linear-gradient(135deg, #5b8dee, #3b6bd0); color: #fff; }
     .btn-save     { background: linear-gradient(135deg, #52b788, #2d9e68); color: #fff; }
     .btn-full     { width: 100%; }
     button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
     .btn-row { display: flex; gap: 10px; margin-top: 14px; }
-    .btn-row button { flex: 1; }
+    .btn-row button, .btn-row label.btn-file { flex: 1; }
 
     /* ── API 키 입력 ── */
     #api-key-section h2  { font-size: 1rem; color: #e2b96f; margin-bottom: 10px; }
@@ -255,7 +257,7 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js"></script>
+  <script src="config.js" onerror="console.warn('config.js 없음 — API 키를 직접 입력해야 합니다')"></script>
 </head>
 <body>
 
@@ -281,12 +283,13 @@
       <p><strong>사진을 여기에 드래그</strong>하거나<br>클릭하여 파일을 선택하세요</p>
       <p style="margin-top:7px;font-size:0.78rem;">JPG · PNG · WEBP / 최대 10MB</p>
     </div>
+
     <input type="file" id="file-input"   accept="image/jpeg,image/png,image/webp" style="display:none" />
     <input type="file" id="camera-input" accept="image/*" capture="user"          style="display:none" />
 
     <div class="btn-row" id="upload-btns">
-      <button class="btn-primary"   onclick="document.getElementById('file-input').click()">📂 파일 선택</button>
-      <button class="btn-secondary" onclick="document.getElementById('camera-input').click()">📷 카메라</button>
+      <label for="file-input"   class="btn-file btn-primary">📂 파일 선택</label>
+      <label for="camera-input" class="btn-file btn-secondary">📷 카메라</label>
     </div>
 
     <!-- 미리보기 -->
@@ -464,6 +467,7 @@ let savedToDb = false;
 
   const dz = document.getElementById("drop-zone");
   dz.onclick = () => document.getElementById("file-input").click();
+  dz.style.cursor = "pointer";
 
   let dragDepth = 0;
   dz.addEventListener("dragenter", e => {
