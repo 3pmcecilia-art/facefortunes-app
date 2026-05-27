@@ -80,12 +80,19 @@
     #api-key-section h2  { font-size: 1rem; color: #e2b96f; margin-bottom: 10px; }
     #api-key-section p   { font-size: 0.82rem; color: #a0a8c0; margin-bottom: 16px; line-height: 1.65; }
     .key-input-row { display: flex; gap: 8px; }
-    .key-input-row input {
-      flex: 1; padding: 11px 14px; border-radius: 10px;
+    .key-input-wrap { flex: 1; position: relative; }
+    .key-input-wrap input {
+      width: 100%; padding: 11px 40px 11px 14px; border-radius: 10px;
       background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
       color: #e0e0e0; font-size: 0.85rem; font-family: monospace; outline: none;
     }
-    .key-input-row input:focus { border-color: rgba(226,185,111,0.5); }
+    .key-input-wrap input:focus { border-color: rgba(226,185,111,0.5); }
+    .key-toggle {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: #6a7490; cursor: pointer;
+      font-size: 1rem; padding: 2px 4px;
+    }
+    .key-toggle:hover { color: #a0a8c0; }
     .key-note { font-size: 0.74rem; color: #555; margin-top: 10px; }
     .key-note a { color: #7a8fc0; }
 
@@ -247,38 +254,14 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
 </head>
 <body>
 
 <!-- ════════════════════════════════════════════════
-     PAGE 0 — API 키 입력
-════════════════════════════════════════════════ -->
-<div class="page active" id="page-apikey">
-  <header>
-    <h1>✦ AI 관상 분석</h1>
-    <p>사진 한 장으로 나의 관상을 풀이해 드립니다</p>
-  </header>
-  <div class="card">
-    <div id="api-key-section">
-      <h2>🔑 OpenRouter API 키 입력</h2>
-      <p>이 앱은 OpenRouter AI 서비스를 사용합니다.<br>
-         API 키를 입력하면 이 브라우저에만 저장되며<br>외부로 전송되지 않습니다.</p>
-      <div class="key-input-row">
-        <input type="password" id="api-key-input" placeholder="sk-or-v1-..." />
-        <button class="btn-primary" onclick="saveApiKey()">시작하기</button>
-      </div>
-      <p class="key-note">
-        API 키 발급 → <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a>
-        (무료 가입 후 발급)
-      </p>
-    </div>
-  </div>
-</div>
-
-<!-- ════════════════════════════════════════════════
      PAGE 1 — 사진 업로드 + 얼굴 분석
 ════════════════════════════════════════════════ -->
-<div class="page" id="page-step1">
+<div class="page active" id="page-step1">
   <header>
     <h1>✦ AI 관상 분석</h1>
     <p>사진을 올리면 AI가 얼굴 특징을 분석합니다</p>
@@ -291,10 +274,6 @@
   </div>
 
   <div class="card">
-    <div class="settings-row">
-      <button class="btn-settings" onclick="resetApiKey()">⚙ API 키 변경</button>
-    </div>
-
     <!-- 업로드 존 -->
     <div id="drop-zone">
       <div class="icon">🖼️</div>
@@ -435,7 +414,12 @@
 // ── Supabase ──────────────────────────────────────────────────────────────────
 const SUPABASE_URL  = "https://cuctknvvcovirkjkzatp.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1Y3RrbnZ2Y292aXJramt6YXRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NzYwMzUsImV4cCI6MjA5NTM1MjAzNX0.yCWt5158EFWywpL-0th-HFVw6ETjYjMSB5G2-tzZjvs";
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+let supabase = null;
+try {
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+} catch (e) {
+  console.warn("Supabase 초기화 실패 (저장 기능 비활성화):", e);
+}
 
 // ── 상수 ──────────────────────────────────────────────────────────────────────
 const ENDPOINT  = "https://openrouter.ai/api/v1/chat/completions";
@@ -462,15 +446,12 @@ const FEAT_LABELS = {
 };
 
 // ── 상태 ──────────────────────────────────────────────────────────────────────
-let apiKey    = localStorage.getItem("or_api_key") || "";
+const apiKey  = (typeof OPENROUTER_API_KEY !== "undefined") ? OPENROUTER_API_KEY : "";
 let step1Data = null;
 let thumbSrc  = "";
 
 // ── 초기화 ────────────────────────────────────────────────────────────────────
 (function init() {
-  if (apiKey) goPage("page-step1");
-
-  document.getElementById("api-key-input").onkeydown = e => { if (e.key === "Enter") saveApiKey(); };
   document.getElementById("file-input").onchange   = e => handleFile(e.target.files[0]);
   document.getElementById("camera-input").onchange = e => handleFile(e.target.files[0]);
 
@@ -494,23 +475,6 @@ function goToStep1() { resetUpload(); goPage("page-step1"); }
 function goToStep2() {
   goPage("page-step2");
   runStep2();
-}
-
-// ── API 키 ────────────────────────────────────────────────────────────────────
-function saveApiKey() {
-  const key = document.getElementById("api-key-input").value.trim();
-  if (!key.startsWith("sk-or-")) {
-    alert("올바른 OpenRouter API 키를 입력해주세요. (sk-or-... 형식)"); return;
-  }
-  apiKey = key;
-  localStorage.setItem("or_api_key", key);
-  goPage("page-step1");
-}
-function resetApiKey() {
-  if (!confirm("API 키를 초기화하고 다시 입력하시겠습니까?")) return;
-  localStorage.removeItem("or_api_key");
-  apiKey = "";
-  goPage("page-apikey");
 }
 
 // ── 파일 처리 ─────────────────────────────────────────────────────────────────
@@ -721,6 +685,8 @@ async function saveRecord() {
   canvas.width = w; canvas.height = h;
   canvas.getContext("2d").drawImage(img, 0, 0, w, h);
   const thumbData = canvas.toDataURL("image/jpeg", 0.7);
+
+  if (!supabase) { showToast("저장 기능을 사용할 수 없습니다 (Supabase 연결 실패)"); return; }
 
   const { error } = await supabase.from("face_results").insert({
     thumbnail:          thumbData,
