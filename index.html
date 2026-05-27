@@ -418,9 +418,9 @@
 // ── Supabase ──────────────────────────────────────────────────────────────────
 const SUPABASE_URL  = "https://cuctknvvcovirkjkzatp.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN1Y3RrbnZ2Y292aXJramt6YXRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3NzYwMzUsImV4cCI6MjA5NTM1MjAzNX0.yCWt5158EFWywpL-0th-HFVw6ETjYjMSB5G2-tzZjvs";
-let supabase = null;
+let sbClient = null;
 try {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+  sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 } catch (e) {
   console.warn("Supabase 초기화 실패 (저장 기능 비활성화):", e);
 }
@@ -711,12 +711,12 @@ function makeThumbnail() {
 }
 
 async function autoSaveToSupabase() {
-  if (!supabase || !step1Data || !step2Data) return;
+  if (!sbClient || !step1Data || !step2Data) return;
 
   const btn = document.getElementById("save-btn");
   if (btn) { btn.disabled = true; btn.textContent = "저장 중..."; }
 
-  const { error } = await supabase.from("face_results").insert({
+  const { error } = await sbClient.from("face_results").insert({
     thumbnail:          makeThumbnail(),
     step1_features:     step1Data.features,
     step2_reading:      step2Data,
