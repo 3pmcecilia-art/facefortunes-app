@@ -113,6 +113,7 @@
     #drop-zone:hover, #drop-zone.drag-over {
       border-color: #e2b96f; background: rgba(226,185,111,0.05);
     }
+    #drop-zone * { pointer-events: none; }
     #drop-zone .icon { font-size: 2.6rem; margin-bottom: 10px; }
     #drop-zone p { color: #a0a8c0; font-size: 0.88rem; line-height: 1.65; }
     #drop-zone strong { color: #e2b96f; }
@@ -457,14 +458,31 @@ let savedToDb = false;
   document.getElementById("file-input").onchange   = e => handleFile(e.target.files[0]);
   document.getElementById("camera-input").onchange = e => handleFile(e.target.files[0]);
 
+  // 브라우저가 드래그 파일을 새 탭에서 열지 못하도록 전체 페이지 방어
+  document.addEventListener("dragover", e => e.preventDefault());
+  document.addEventListener("drop",     e => e.preventDefault());
+
   const dz = document.getElementById("drop-zone");
-  dz.onclick     = () => document.getElementById("file-input").click();
-  dz.ondragover  = e => { e.preventDefault(); dz.classList.add("drag-over"); };
-  dz.ondragleave = () => dz.classList.remove("drag-over");
-  dz.ondrop = e => {
-    e.preventDefault(); dz.classList.remove("drag-over");
-    const f = e.dataTransfer.files[0]; if (f) handleFile(f);
-  };
+  dz.onclick = () => document.getElementById("file-input").click();
+
+  let dragDepth = 0;
+  dz.addEventListener("dragenter", e => {
+    e.preventDefault();
+    dragDepth++;
+    dz.classList.add("drag-over");
+  });
+  dz.addEventListener("dragleave", () => {
+    dragDepth--;
+    if (dragDepth === 0) dz.classList.remove("drag-over");
+  });
+  dz.addEventListener("dragover", e => e.preventDefault());
+  dz.addEventListener("drop", e => {
+    e.preventDefault();
+    dragDepth = 0;
+    dz.classList.remove("drag-over");
+    const f = e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  });
 })();
 
 // ── 페이지 전환 ───────────────────────────────────────────────────────────────
